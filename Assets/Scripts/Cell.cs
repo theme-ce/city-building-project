@@ -4,6 +4,10 @@ public class Cell
 {
     public CellType CellType;
     public Color Color;
+    public Cell LeftCell = null;
+    public Cell RightCell = null;
+    public Cell UpCell = null;
+    public Cell DownCell = null;
 
     public Cell(TerrainInfo info)
     {

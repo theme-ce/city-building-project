@@ -21,8 +21,6 @@ public class GridSelector : MonoBehaviour
             {
                 float x = hit.point.x;
                 float z = hit.point.z;
-                Vector2 highlightPos = m_grid.FindSquareForPosition(new Vector2(x, z));
-                m_highlightGrid.transform.position = new Vector3(highlightPos.x, 0.001f, highlightPos.y);
             }
         }
     }
