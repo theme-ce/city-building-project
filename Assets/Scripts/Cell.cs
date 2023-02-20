@@ -1,9 +1,21 @@
+using UnityEngine;
+
 public class Cell
 {
-    public bool IsWater;
+    public CellType CellType;
+    public Color Color;
 
-    public Cell(bool isWater)
+    public Cell(TerrainInfo info)
     {
-        IsWater = isWater;
+        CellType = info.CellType;
+        Color = info.Color;
     }
+}
+
+public enum CellType : byte
+{
+    Water = 0,
+    Sand = 1,
+    Grass = 2,
+    Grass2 = 3,
 }
