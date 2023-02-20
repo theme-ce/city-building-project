@@ -7,88 +7,26 @@ public class Grid : MonoBehaviour
 {
     [SerializeField] private GameObject[] m_treePrefabs;
     [SerializeField] private Material m_terrainMaterial;
-    [SerializeField] private Material m_edgeMaterials;
-    [SerializeField] private Material m_waterMaterial;
 
-    [SerializeField] private GameObject m_waterGrid;
-    [SerializeField] private float m_scale = 5f;
     [SerializeField] private float m_treeNoiseScale = 5f;
     [SerializeField] private float m_treeDensity = .3f;
-    [SerializeField] private int m_size = 50;
 
-    private Cell[,] m_grid;
+    private int m_size = 50;
     private DualGridCell[,] m_dualGrid;
+    private Cell[,] m_grid;
     private List<Vector3> m_vertices = new List<Vector3>();
     private List<int> m_triangles = new List<int>();
     private int m_numPoints = 8;
-    private List<List<Vector2>> m_squares = new List<List<Vector2>>();
 
-    [SerializeField] private TerrainInfo[] m_terrainInfo;
-
-    private void Start()
+    public void Init(Cell[,] gridData, DualGridCell[,] dualGridData, int size)
     {
-        float[,] noiseMap = GenerateNoiseMap(m_size, m_size, m_scale);
+        m_size = size;
 
-        m_grid = new Cell[m_size, m_size];
-
-        for (int y = 0; y < m_size; y++)
-        {
-            for (int x = 0; x < m_size; x++)
-            {
-                Cell cell = new Cell(GetTerrainInfo(noiseMap[x, y]));
-                m_grid[x, y] = cell;
-            }
-        }
-
-        m_dualGrid = new DualGridCell[m_size + 1, m_size + 1];
-        for (int y = 0; y < m_size + 1; y++)
-        {
-            for (int x = 0; x < m_size + 1; x++)
-            {
-                m_dualGrid[x, y] = new DualGridCell();
-                m_dualGrid[x, y].Position = new Vector3(x - 0.5f, 0, y - 0.5f);
-                m_dualGrid[x, y].A = x > 0 && y < m_size ? m_grid[x - 1, y].CellType : CellType.Water;
-                m_dualGrid[x, y].B = x < m_size && y < m_size ? m_grid[x, y].CellType : CellType.Water;
-                m_dualGrid[x, y].C = x > 0 && y > 0 ? m_grid[x - 1, y - 1].CellType : CellType.Water;
-                m_dualGrid[x, y].D = x < m_size && y > 0 ? m_grid[x, y - 1].CellType : CellType.Water;
-            }
-        }
+        m_grid = gridData;
+        m_dualGrid = dualGridData;
 
         DrawTerrainMesh(m_grid);
-        //DrawEdgeMesh(m_grid);
         GenerateTrees(m_grid);
-    }
-
-    public TerrainInfo GetTerrainInfo(float height)
-    {
-        for (int i = 0; i < m_terrainInfo.Length; i++)
-        {
-            if (height < m_terrainInfo[i].Height)
-            {
-                return m_terrainInfo[i];
-            }
-        }
-
-        return m_terrainInfo[0];
-    }
-
-    public float[,] GenerateNoiseMap(int mapDepth, int mapWidth, float scale)
-    {
-        // create an empty noise map with the mapDepth and mapWidth coordinates
-        float[,] noiseMap = new float[mapDepth, mapWidth];
-        for (int zIndex = 0; zIndex < mapDepth; zIndex++)
-        {
-            for (int xIndex = 0; xIndex < mapWidth; xIndex++)
-            {
-                // calculate sample indices based on the coordinates and the scale
-                float sampleX = xIndex / scale;
-                float sampleZ = zIndex / scale;
-                // generate noise value using PerlinNoise
-                float noise = Mathf.PerlinNoise(sampleX, sampleZ);
-                noiseMap[zIndex, xIndex] = noise;
-            }
-        }
-        return noiseMap;
     }
 
     void DrawTerrainMesh(Cell[,] grid)
@@ -99,7 +37,7 @@ public class Grid : MonoBehaviour
         {
             for (int x = 0; x < m_size + 1; x++)
             {
-                Vector3 pos = m_dualGrid[x, y].Position;
+                Vector3 pos = new Vector3(x - 0.5f, 0, y - 0.5f);
                 CellType A = m_dualGrid[x, y].A;
                 CellType B = m_dualGrid[x, y].B;
                 CellType C = m_dualGrid[x, y].C;
@@ -141,303 +79,6 @@ public class Grid : MonoBehaviour
 
         MeshRenderer meshRenderer = gameObject.AddComponent<MeshRenderer>();
         meshRenderer.material = m_terrainMaterial;
-        meshRenderer.material.mainTexture = DrawTexture(m_grid);
-
-        MeshCollider meshCollider = m_waterGrid.AddComponent<MeshCollider>();
-    }
-
-    Texture2D DrawTexture(Cell[,] grid)
-    {
-        Color[] colorMap = new Color[m_size * m_size];
-
-        for (int y = 0; y < m_size; y++)
-        {
-            for (int x = 0; x < m_size; x++)
-            {
-                int colorIndex = y * m_size + x;
-                colorMap[colorIndex] = m_grid[x, y].Color;
-            }
-        }
-
-        Texture2D tileTexture = new Texture2D(m_size, m_size, TextureFormat.RGBA32, false, false);
-        tileTexture.wrapMode = TextureWrapMode.Clamp;
-        tileTexture.filterMode = FilterMode.Point;
-        tileTexture.SetPixels(colorMap);
-        tileTexture.Apply();
-
-        return tileTexture;
-    }
-
-    void DrawEdgeMesh(Cell[,] grid)
-    {
-        Mesh mesh = new Mesh();
-        List<Vector3> vertices = new List<Vector3>();
-        List<int> triangles = new List<int>();
-        for (int y = 0; y < m_size; y++)
-        {
-            for (int x = 0; x < m_size; x++)
-            {
-                Cell cell = grid[x, y];
-                if (cell.CellType == CellType.Grass || cell.CellType == CellType.Sand)
-                {
-                    if (x > 0)
-                    {
-                        Cell left = grid[x - 1, y];
-                        if (left.CellType == CellType.Water)
-                        {
-                            Vector3 a = new Vector3(x - .5f, 0, y + .5f);
-                            Vector3 b = new Vector3(x - .5f, 0, y - .5f);
-                            Vector3 c = new Vector3(x - .5f, -1, y + .5f);
-                            Vector3 d = new Vector3(x - .5f, -1, y - .5f);
-                            Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                            for (int k = 0; k < 6; k++)
-                            {
-                                vertices.Add(v[k]);
-                                triangles.Add(triangles.Count);
-                            }
-                        }
-                    }
-                    if (x < m_size - 1)
-                    {
-                        Cell right = grid[x + 1, y];
-                        if (right.CellType == CellType.Water)
-                        {
-                            Vector3 a = new Vector3(x + .5f, 0, y - .5f);
-                            Vector3 b = new Vector3(x + .5f, 0, y + .5f);
-                            Vector3 c = new Vector3(x + .5f, -1, y - .5f);
-                            Vector3 d = new Vector3(x + .5f, -1, y + .5f);
-                            Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                            for (int k = 0; k < 6; k++)
-                            {
-                                vertices.Add(v[k]);
-                                triangles.Add(triangles.Count);
-                            }
-                        }
-                    }
-                    if (y > 0)
-                    {
-                        Cell down = grid[x, y - 1];
-                        if (down.CellType == CellType.Water)
-                        {
-                            Vector3 a = new Vector3(x - .5f, 0, y - .5f);
-                            Vector3 b = new Vector3(x + .5f, 0, y - .5f);
-                            Vector3 c = new Vector3(x - .5f, -1, y - .5f);
-                            Vector3 d = new Vector3(x + .5f, -1, y - .5f);
-                            Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                            for (int k = 0; k < 6; k++)
-                            {
-                                vertices.Add(v[k]);
-                                triangles.Add(triangles.Count);
-                            }
-                        }
-                    }
-                    if (y < m_size - 1)
-                    {
-                        Cell up = grid[x, y + 1];
-                        if (up.CellType == CellType.Water)
-                        {
-                            Vector3 a = new Vector3(x + .5f, 0, y + .5f);
-                            Vector3 b = new Vector3(x - .5f, 0, y + .5f);
-                            Vector3 c = new Vector3(x + .5f, -1, y + .5f);
-                            Vector3 d = new Vector3(x - .5f, -1, y + .5f);
-                            Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                            for (int k = 0; k < 6; k++)
-                            {
-                                vertices.Add(v[k]);
-                                triangles.Add(triangles.Count);
-                            }
-                        }
-                    }
-                    if (x == 0)
-                    {
-                        Vector3 a = new Vector3(x - .5f, 0, y + .5f);
-                        Vector3 b = new Vector3(x - .5f, 0, y - .5f);
-                        Vector3 c = new Vector3(x - .5f, -1, y + .5f);
-                        Vector3 d = new Vector3(x - .5f, -1, y - .5f);
-                        Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                        for (int k = 0; k < 6; k++)
-                        {
-                            vertices.Add(v[k]);
-                            triangles.Add(triangles.Count);
-                        }
-                    }
-                    if (x == m_size - 1)
-                    {
-                        Vector3 a = new Vector3(x + .5f, 0, y - .5f);
-                        Vector3 b = new Vector3(x + .5f, 0, y + .5f);
-                        Vector3 c = new Vector3(x + .5f, -1, y - .5f);
-                        Vector3 d = new Vector3(x + .5f, -1, y + .5f);
-                        Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                        for (int k = 0; k < 6; k++)
-                        {
-                            vertices.Add(v[k]);
-                            triangles.Add(triangles.Count);
-                        }
-                    }
-                    if (y == 0)
-                    {
-                        Vector3 a = new Vector3(x - .5f, 0, y - .5f);
-                        Vector3 b = new Vector3(x + .5f, 0, y - .5f);
-                        Vector3 c = new Vector3(x - .5f, -1, y - .5f);
-                        Vector3 d = new Vector3(x + .5f, -1, y - .5f);
-                        Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                        for (int k = 0; k < 6; k++)
-                        {
-                            vertices.Add(v[k]);
-                            triangles.Add(triangles.Count);
-                        }
-                    }
-                    if (y == m_size - 1)
-                    {
-                        Vector3 a = new Vector3(x + .5f, 0, y + .5f);
-                        Vector3 b = new Vector3(x - .5f, 0, y + .5f);
-                        Vector3 c = new Vector3(x + .5f, -1, y + .5f);
-                        Vector3 d = new Vector3(x - .5f, -1, y + .5f);
-                        Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                        for (int k = 0; k < 6; k++)
-                        {
-                            vertices.Add(v[k]);
-                            triangles.Add(triangles.Count);
-                        }
-                    }
-                }
-                else if (cell.CellType == CellType.Grass2)
-                {
-                    if (x > 0)
-                    {
-                        Cell left = grid[x - 1, y];
-                        if (left.CellType != CellType.Grass2)
-                        {
-                            Vector3 a = new Vector3(x - .5f, 1, y + .5f);
-                            Vector3 b = new Vector3(x - .5f, 1, y - .5f);
-                            Vector3 c = new Vector3(x - .5f, 0, y + .5f);
-                            Vector3 d = new Vector3(x - .5f, 0, y - .5f);
-                            Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                            for (int k = 0; k < 6; k++)
-                            {
-                                vertices.Add(v[k]);
-                                triangles.Add(triangles.Count);
-                            }
-                        }
-                    }
-                    if (x < m_size - 1)
-                    {
-                        Cell right = grid[x + 1, y];
-                        if (right.CellType != CellType.Grass2)
-                        {
-                            Vector3 a = new Vector3(x + .5f, 1, y - .5f);
-                            Vector3 b = new Vector3(x + .5f, 1, y + .5f);
-                            Vector3 c = new Vector3(x + .5f, 0, y - .5f);
-                            Vector3 d = new Vector3(x + .5f, 0, y + .5f);
-                            Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                            for (int k = 0; k < 6; k++)
-                            {
-                                vertices.Add(v[k]);
-                                triangles.Add(triangles.Count);
-                            }
-                        }
-                    }
-                    if (y > 0)
-                    {
-                        Cell down = grid[x, y - 1];
-                        if (down.CellType != CellType.Grass2)
-                        {
-                            Vector3 a = new Vector3(x - .5f, 1, y - .5f);
-                            Vector3 b = new Vector3(x + .5f, 1, y - .5f);
-                            Vector3 c = new Vector3(x - .5f, 0, y - .5f);
-                            Vector3 d = new Vector3(x + .5f, 0, y - .5f);
-                            Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                            for (int k = 0; k < 6; k++)
-                            {
-                                vertices.Add(v[k]);
-                                triangles.Add(triangles.Count);
-                            }
-                        }
-                    }
-                    if (y < m_size - 1)
-                    {
-                        Cell up = grid[x, y + 1];
-                        if (up.CellType != CellType.Grass2)
-                        {
-                            Vector3 a = new Vector3(x + .5f, 1, y + .5f);
-                            Vector3 b = new Vector3(x - .5f, 1, y + .5f);
-                            Vector3 c = new Vector3(x + .5f, 0, y + .5f);
-                            Vector3 d = new Vector3(x - .5f, 0, y + .5f);
-                            Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                            for (int k = 0; k < 6; k++)
-                            {
-                                vertices.Add(v[k]);
-                                triangles.Add(triangles.Count);
-                            }
-                        }
-                    }
-                    if (x == 0)
-                    {
-                        Vector3 a = new Vector3(x - .5f, 1, y + .5f);
-                        Vector3 b = new Vector3(x - .5f, 1, y - .5f);
-                        Vector3 c = new Vector3(x - .5f, 0, y + .5f);
-                        Vector3 d = new Vector3(x - .5f, 0, y - .5f);
-                        Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                        for (int k = 0; k < 6; k++)
-                        {
-                            vertices.Add(v[k]);
-                            triangles.Add(triangles.Count);
-                        }
-                    }
-                    if (x == m_size - 1)
-                    {
-                        Vector3 a = new Vector3(x + .5f, 1, y - .5f);
-                        Vector3 b = new Vector3(x + .5f, 1, y + .5f);
-                        Vector3 c = new Vector3(x + .5f, 0, y - .5f);
-                        Vector3 d = new Vector3(x + .5f, 0, y + .5f);
-                        Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                        for (int k = 0; k < 6; k++)
-                        {
-                            vertices.Add(v[k]);
-                            triangles.Add(triangles.Count);
-                        }
-                    }
-                    if (y == 0)
-                    {
-                        Vector3 a = new Vector3(x - .5f, 1, y - .5f);
-                        Vector3 b = new Vector3(x + .5f, 1, y - .5f);
-                        Vector3 c = new Vector3(x - .5f, 0, y - .5f);
-                        Vector3 d = new Vector3(x + .5f, 0, y - .5f);
-                        Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                        for (int k = 0; k < 6; k++)
-                        {
-                            vertices.Add(v[k]);
-                            triangles.Add(triangles.Count);
-                        }
-                    }
-                    if (y == m_size - 1)
-                    {
-                        Vector3 a = new Vector3(x + .5f, 1, y + .5f);
-                        Vector3 b = new Vector3(x - .5f, 1, y + .5f);
-                        Vector3 c = new Vector3(x + .5f, 0, y + .5f);
-                        Vector3 d = new Vector3(x - .5f, 0, y + .5f);
-                        Vector3[] v = new Vector3[] { a, b, c, b, d, c };
-                        for (int k = 0; k < 6; k++)
-                        {
-                            vertices.Add(v[k]);
-                            triangles.Add(triangles.Count);
-                        }
-                    }
-                }
-            }
-        }
-        mesh.vertices = vertices.ToArray();
-        mesh.triangles = triangles.ToArray();
-        mesh.RecalculateNormals();
-
-        GameObject edgeObj = new GameObject("Edge");
-        edgeObj.transform.SetParent(transform);
-
-        MeshFilter meshFilter = edgeObj.AddComponent<MeshFilter>();
-        meshFilter.mesh = mesh;
-
-        MeshRenderer meshRenderer = edgeObj.AddComponent<MeshRenderer>();
-        meshRenderer.material = m_edgeMaterials;
     }
 
     void GenerateTrees(Cell[,] grid)
@@ -466,8 +107,8 @@ public class Grid : MonoBehaviour
                     {
                         GameObject prefab = m_treePrefabs[Random.Range(0, m_treePrefabs.Length)];
                         GameObject tree = Instantiate(prefab, transform);
-                        tree.transform.position = new Vector3(x, 0, y);
-                        tree.transform.rotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
+                        tree.transform.localPosition = new Vector3(x, 0, y);
+                        tree.transform.localRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
                         tree.transform.localScale = Vector3.one * Random.Range(.8f, 1.2f);
                     }
                 }
@@ -498,52 +139,21 @@ public class Grid : MonoBehaviour
 
     public void GenerateMeshTypeFillCorner(Vector3 pos, float rotate)
     {
-        Vector3[] points = new Vector3[m_numPoints + 1];
+        Vector3[] points = new Vector3[m_numPoints * 2 + 7];
         points[0] = new Vector3(pos.x - 0.5f, 0, pos.z + 0.5f);
+        points[1] = new Vector3(pos.x - 0.5f, 0, pos.z + 0.25f);
+        points[2] = new Vector3(pos.x - 0.25f, 0, pos.z + 0.25f);
+        points[3] = new Vector3(pos.x - 0.5f, 0, pos.z);
+        points[4] = new Vector3(pos.x, 0, pos.z + 0.5f);
+        points[5] = new Vector3(pos.x - 0.5f, -1, pos.z);
+        points[6] = new Vector3(pos.x, -1, pos.z + 0.5f);
         float angle = Mathf.PI / (2 * (m_numPoints - 1));
         for (int point = 0; point < m_numPoints; point++)
         {
-            float x = Mathf.Cos(angle * point) * 0.5f - 0.5f + pos.x;
-            float y = -Mathf.Sin(angle * point) * 0.5f + 0.5f + pos.z;
-            points[point + 1] = new Vector3(x, 0, y);
-        }
-
-        Vector3 a = points[0];
-        Vector3 b = points[1];
-        Vector3 c = points[2];
-        Vector3 d = points[3];
-        Vector3 e = points[4];
-        Vector3 f = points[5];
-        Vector3 g = points[6];
-        Vector3 h = points[7];
-        Vector3 i = points[8];
-
-        Vector3[] v = new Vector3[] { a, b, c, a, c, d, a, d, e, a, e, f, a, f, g, a, g, h, a, h, i };
-        List<Vector3> vertices = new List<Vector3>();
-        for (int z = 0; z < v.Length; z++)
-        {
-            vertices.Add(v[z]);
-            m_triangles.Add(m_triangles.Count);
-        }
-
-        vertices = RotateTriangles(vertices, pos, new Vector3(0, rotate, 0));
-        m_vertices.AddRange(vertices);
-    }
-
-    public void GenerateMeshTypeBlankCorner(Vector3 pos, float rotate)
-    {
-        Vector3[] points = new Vector3[m_numPoints + 5];
-        points[0] = new Vector3(pos.x - 0.5f, 0, pos.z + 0.5f);
-        points[1] = new Vector3(pos.x, 0, pos.z + 0.5f);
-        points[2] = new Vector3(pos.x + 0.5f, 0, pos.z + 0.5f);
-        points[3] = new Vector3(pos.x - 0.5f, 0, pos.z - 0.5f);
-        points[4] = new Vector3(pos.x, 0, pos.z);
-        float angle = Mathf.PI / (2 * (m_numPoints - 1));
-        for (int point = 0; point < m_numPoints; point++)
-        {
-            float x = pos.x - Mathf.Cos(angle * point) * 0.5f + 0.5f;
-            float y = pos.z + Mathf.Sin(angle * point) * 0.5f - 0.5f;
-            points[point + 5] = new Vector3(x, 0, y);
+            float x = pos.x + Mathf.Cos(angle * point) * 0.25f - 0.25f;
+            float y = pos.z - Mathf.Sin(angle * point) * 0.25f + 0.25f;
+            points[point + 7] = new Vector3(x, 0, y);
+            points[point + m_numPoints + 7] = new Vector3(x, -1, y);
         }
 
         Vector3 a = points[0];
@@ -559,12 +169,81 @@ public class Grid : MonoBehaviour
         Vector3 k = points[10];
         Vector3 l = points[11];
         Vector3 m = points[12];
+        Vector3 n = points[13];
+        Vector3 o = points[14];
+        Vector3 p = points[15];
+        Vector3 q = points[16];
+        Vector3 r = points[17];
+        Vector3 s = points[18];
+        Vector3 t = points[19];
+        Vector3 u = points[20];
+        Vector3 v = points[21];
+        Vector3 w = points[22];
 
-        Vector3[] v = new Vector3[] { a, b, d, b, f, d, e, b, c, c, m, e, f, e, g, g, e, h, h, e, i, i, e, j, j, e, k, k, e, l, l, e, m };
+        Vector3[] vs = new Vector3[] { a, e, b, e, h, b, d, b, c, c, o, d, c, n, o, c, m, n, c, l, m, c, k, l, c, j, k, c, i, j, c, h, i, f, d, o, f, o, w, p, h, e, p, e, g, w, o, n, w, n, v, v, n, m, v, m, u, u, m, l, u, l, t, t, l, k, t, k, s, s, k, j, s, j, r, r, j, i, r, i, q, q, i, h, q, h, p };
         List<Vector3> vertices = new List<Vector3>();
-        for (int z = 0; z < v.Length; z++)
+        for (int z = 0; z < vs.Length; z++)
         {
-            vertices.Add(v[z]);
+            vertices.Add(vs[z]);
+            m_triangles.Add(m_triangles.Count);
+        }
+
+        vertices = RotateTriangles(vertices, pos, new Vector3(0, rotate, 0));
+        m_vertices.AddRange(vertices);
+    }
+
+    public void GenerateMeshTypeBlankCorner(Vector3 pos, float rotate)
+    {
+        Vector3[] points = new Vector3[m_numPoints * 2 + 9];
+        points[0] = new Vector3(pos.x - 0.5f, 0, pos.z + 0.5f);
+        points[1] = new Vector3(pos.x + 0.5f, 0, pos.z + 0.5f);
+        points[2] = new Vector3(pos.x - 0.5f, 0, pos.z);
+        points[3] = new Vector3(pos.x + 0.5f, 0, pos.z);
+        points[4] = new Vector3(pos.x - 0.5f, 0, pos.z - 0.5f);
+        points[5] = new Vector3(pos.x, 0, pos.z - 0.5f);
+        points[6] = new Vector3(pos.x, 0, pos.z);
+        points[7] = new Vector3(pos.x, -1, pos.z - 0.5f);
+        points[8] = new Vector3(pos.x + 0.5f, -1, pos.z);
+        float angle = Mathf.PI / (2 * (m_numPoints - 1));
+        for (int point = 0; point < m_numPoints; point++)
+        {
+            float x = pos.x - Mathf.Cos(angle * point) * 0.25f + 0.25f;
+            float y = pos.z + Mathf.Sin(angle * point) * 0.25f - 0.25f;
+            points[point + 9] = new Vector3(x, 0, y);
+            points[point + m_numPoints + 9] = new(x, -1, y);
+        }
+
+        Vector3 a = points[0];
+        Vector3 b = points[1];
+        Vector3 c = points[2];
+        Vector3 d = points[3];
+        Vector3 e = points[4];
+        Vector3 f = points[5];
+        Vector3 g = points[6];
+        Vector3 h = points[7];
+        Vector3 i = points[8];
+        Vector3 j = points[9];
+        Vector3 k = points[10];
+        Vector3 l = points[11];
+        Vector3 m = points[12];
+        Vector3 n = points[13];
+        Vector3 o = points[14];
+        Vector3 p = points[15];
+        Vector3 q = points[16];
+        Vector3 r = points[17];
+        Vector3 s = points[18];
+        Vector3 t = points[19];
+        Vector3 u = points[20];
+        Vector3 v = points[21];
+        Vector3 w = points[22];
+        Vector3 xx = points[23];
+        Vector3 yy = points[24];
+
+        Vector3[] vs = new Vector3[] { a, b, c, b, d, c, c, g, e, g, f, e, g, k, j, g, l, k, g, m, l, g, n, m, g, o, n, g, p, o, g, q, p, h, f, j, h, j, r, r, j, k, r, k, s, s, k, l, s, l, t, t, l, m, t, m, u, u, m, n, u, n, v, v, n, o, v, o, w, w, o, p, w, p, xx, xx, p, q, xx, q, yy, yy, q, d, yy, d, i };
+        List<Vector3> vertices = new List<Vector3>();
+        for (int z = 0; z < vs.Length; z++)
+        {
+            vertices.Add(vs[z]);
             m_triangles.Add(m_triangles.Count);
         }
 
@@ -574,18 +253,22 @@ public class Grid : MonoBehaviour
 
     public void GenerateMeshTypeHalf(Vector3 pos, float rotate)
     {
-        Vector3[] points = new Vector3[4];
+        Vector3[] points = new Vector3[6];
         points[0] = new Vector3(pos.x - 0.5f, 0, pos.z + 0.5f);
         points[1] = new Vector3(pos.x, 0, pos.z + 0.5f);
         points[2] = new Vector3(pos.x - 0.5f, 0, pos.z - 0.5f);
         points[3] = new Vector3(pos.x, 0, pos.z - 0.5f);
+        points[4] = new Vector3(pos.x, -1, pos.z + 0.5f);
+        points[5] = new Vector3(pos.x, -1, pos.z - 0.5f);
 
         Vector3 a = points[0];
         Vector3 b = points[1];
         Vector3 c = points[2];
         Vector3 d = points[3];
+        Vector3 e = points[4];
+        Vector3 f = points[5];
 
-        Vector3[] v = new Vector3[] { a, b, c, b, d, c };
+        Vector3[] v = new Vector3[] { a, b, c, b, d, c, b, e, d, e, f, d };
         List<Vector3> vertices = new List<Vector3>();
         for (int z = 0; z < v.Length; z++)
         {
