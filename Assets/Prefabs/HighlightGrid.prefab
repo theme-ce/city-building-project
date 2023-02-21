@@ -11,7 +11,8 @@ GameObject:
   - component: {fileID: 1910347808355427611}
   - component: {fileID: 6027843139127350961}
   - component: {fileID: 6926698308079956491}
-  - component: {fileID: 2139662382634358016}
+  - component: {fileID: 6385720749902144967}
+  - component: {fileID: 7457129437484159539}
   m_Layer: 0
   m_Name: HighlightGrid
   m_TagString: Untagged
@@ -84,8 +85,8 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!64 &2139662382634358016
-MeshCollider:
+--- !u!65 &6385720749902144967
+BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -94,7 +95,19 @@ MeshCollider:
   m_Material: {fileID: 0}
   m_IsTrigger: 0
   m_Enabled: 1
-  serializedVersion: 4
-  m_Convex: 0
-  m_CookingOptions: 30
-  m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+  serializedVersion: 2
+  m_Size: {x: 10, y: 0.01, z: 10}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &7457129437484159539
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7749932324387311728}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a0ae39c198f99c4e8e503df299c10a9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_highlightGridMat: {fileID: 2100000, guid: 0eaa1a5feea9bbb439bd7ac1d6a8642d, type: 2}

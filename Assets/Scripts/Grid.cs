@@ -5,17 +5,20 @@ using Random = UnityEngine.Random;
 
 public class Grid : MonoBehaviour
 {
+    [SerializeField] private GameObject m_house;
     [SerializeField] private GameObject[] m_treePrefabs;
     [SerializeField] private Material m_terrainMaterial;
 
-    [SerializeField] private float m_treeNoiseScale = 5f;
-    [SerializeField] private float m_treeDensity = .3f;
+    private float m_treeNoiseScale = 8f;
+    private float m_treeDensity = .2f;
 
+    private Mesh m_mesh;
     private int m_size = 50;
     private DualGridCell[,] m_dualGrid;
     private Cell[,] m_grid;
     private List<Vector3> m_vertices = new List<Vector3>();
     private List<int> m_triangles = new List<int>();
+    private List<Vector2> m_uvs = new List<Vector2>();
     private int m_numPoints = 8;
 
     public void Init(Cell[,] gridData, DualGridCell[,] dualGridData, int size)
@@ -24,14 +27,26 @@ public class Grid : MonoBehaviour
 
         m_grid = gridData;
         m_dualGrid = dualGridData;
+        m_mesh = new Mesh();
 
         DrawTerrainMesh(m_grid);
         GenerateTrees(m_grid);
     }
 
-    void DrawTerrainMesh(Cell[,] grid)
+    public void UpdateChunk(Cell[,] gridData, DualGridCell[,] dualGridData)
     {
-        Mesh mesh = new Mesh();
+        m_grid = gridData;
+        m_dualGrid = dualGridData;
+
+        DrawTerrainMesh(m_grid);
+    }
+
+    public void DrawTerrainMesh(Cell[,] grid)
+    {
+        m_mesh = new Mesh();
+        m_vertices.Clear();
+        m_triangles.Clear();
+        m_uvs.Clear();
 
         for (int y = 0; y < m_size + 1; y++)
         {
@@ -43,42 +58,58 @@ public class Grid : MonoBehaviour
                 CellType C = m_dualGrid[x, y].C;
                 CellType D = m_dualGrid[x, y].D;
                 #region FillCorner
-                if (A == CellType.Grass && B == CellType.Water && C == CellType.Water && D == CellType.Water) GenerateMeshTypeFillCorner(pos, 0);
-                else if (A == CellType.Water && B == CellType.Grass && C == CellType.Water && D == CellType.Water) GenerateMeshTypeFillCorner(pos, 90);
-                else if (A == CellType.Water && B == CellType.Water && C == CellType.Water && D == CellType.Grass) GenerateMeshTypeFillCorner(pos, 180);
-                else if (A == CellType.Water && B == CellType.Water && C == CellType.Grass && D == CellType.Water) GenerateMeshTypeFillCorner(pos, 270);
+                if (A != CellType.Soil && B == CellType.Soil && C == CellType.Soil && D == CellType.Soil) GenerateMeshTypeFillCorner(pos, 0);
+                else if (A == CellType.Soil && B != CellType.Soil && C == CellType.Soil && D == CellType.Soil) GenerateMeshTypeFillCorner(pos, 90);
+                else if (A == CellType.Soil && B == CellType.Soil && C == CellType.Soil && D == CellType.Grass) GenerateMeshTypeFillCorner(pos, 180);
+                else if (A == CellType.Soil && B == CellType.Soil && C == CellType.Grass && D == CellType.Soil) GenerateMeshTypeFillCorner(pos, 270);
                 #endregion
                 #region Half
-                else if (A == CellType.Grass && B == CellType.Water && C == CellType.Grass && D == CellType.Water) GenerateMeshTypeHalf(pos, 0);
-                else if (A == CellType.Grass && B == CellType.Grass && C == CellType.Water && D == CellType.Water) GenerateMeshTypeHalf(pos, 90);
-                else if (A == CellType.Water && B == CellType.Grass && C == CellType.Water && D == CellType.Grass) GenerateMeshTypeHalf(pos, 180);
-                else if (A == CellType.Water && B == CellType.Water && C == CellType.Grass && D == CellType.Grass) GenerateMeshTypeHalf(pos, 270);
+                else if (A != CellType.Soil && B == CellType.Soil && C != CellType.Soil && D == CellType.Soil) GenerateMeshTypeHalf(pos, 0);
+                else if (A != CellType.Soil && B != CellType.Soil && C == CellType.Soil && D == CellType.Soil) GenerateMeshTypeHalf(pos, 90);
+                else if (A == CellType.Soil && B != CellType.Soil && C == CellType.Soil && D != CellType.Soil) GenerateMeshTypeHalf(pos, 180);
+                else if (A == CellType.Soil && B == CellType.Soil && C != CellType.Soil && D != CellType.Soil) GenerateMeshTypeHalf(pos, 270);
                 #endregion
                 #region Between
-                else if (A == CellType.Grass && B == CellType.Water && C == CellType.Water && D == CellType.Grass) GenerateMeshTypeBetween(pos, 0);
-                else if (A == CellType.Water && B == CellType.Grass && C == CellType.Grass && D == CellType.Water) GenerateMeshTypeBetween(pos, 90);
+                else if (A != CellType.Soil && B == CellType.Soil && C == CellType.Soil && D != CellType.Soil) GenerateMeshTypeBetween(pos, 0);
+                else if (A == CellType.Soil && B != CellType.Soil && C != CellType.Soil && D == CellType.Soil) GenerateMeshTypeBetween(pos, 90);
                 #endregion
                 #region EmptyCorner
-                else if (A == CellType.Grass && B == CellType.Grass && C == CellType.Grass && D == CellType.Water) GenerateMeshTypeBlankCorner(pos, 0);
-                else if (A == CellType.Grass && B == CellType.Grass && C == CellType.Water && D == CellType.Grass) GenerateMeshTypeBlankCorner(pos, 90);
-                else if (A == CellType.Water && B == CellType.Grass && C == CellType.Grass && D == CellType.Grass) GenerateMeshTypeBlankCorner(pos, 180);
-                else if (A == CellType.Grass && B == CellType.Water && C == CellType.Grass && D == CellType.Grass) GenerateMeshTypeBlankCorner(pos, 270);
+                else if (A != CellType.Soil && B != CellType.Soil && C != CellType.Soil && D == CellType.Soil) GenerateMeshTypeBlankCorner(pos, 0);
+                else if (A != CellType.Soil && B != CellType.Soil && C == CellType.Soil && D != CellType.Soil) GenerateMeshTypeBlankCorner(pos, 90);
+                else if (A == CellType.Soil && B == CellType.Grass && C == CellType.Grass && D == CellType.Grass) GenerateMeshTypeBlankCorner(pos, 180);
+                else if (A != CellType.Soil && B == CellType.Soil && C != CellType.Soil && D != CellType.Soil) GenerateMeshTypeBlankCorner(pos, 270);
                 #endregion
                 #region Normal
-                else if (A == CellType.Grass && B == CellType.Grass && C == CellType.Grass && D == CellType.Grass) GenerateMeshTypeNormal(pos);
+                else if (A != CellType.Soil && B != CellType.Soil && C != CellType.Soil && D != CellType.Soil) GenerateMeshTypeNormal(pos);
                 #endregion
             }
         }
 
-        mesh.vertices = m_vertices.ToArray();
-        mesh.triangles = m_triangles.ToArray();
-        mesh.RecalculateNormals();
+        for (int i = 0; i < m_vertices.Count; i++)
+        {
+            Vector2 grassUV = new Vector2((256f * 1f - 128) / 2048f, (256f * 8f - 128) / 2048f);
+            m_uvs.Add(grassUV);
+        }
+        m_mesh.vertices = m_vertices.ToArray();
+        m_mesh.triangles = m_triangles.ToArray();
+        m_mesh.uv = m_uvs.ToArray();
+        m_mesh.RecalculateNormals();
+        m_mesh.RecalculateBounds();
+        m_mesh.RecalculateTangents();
 
-        MeshFilter meshfilter = gameObject.AddComponent<MeshFilter>();
-        meshfilter.mesh = mesh;
+        MeshFilter meshfilter = gameObject.GetComponent<MeshFilter>();
+        if (meshfilter == null) meshfilter = gameObject.AddComponent<MeshFilter>();
+        meshfilter.mesh = m_mesh;
 
-        MeshRenderer meshRenderer = gameObject.AddComponent<MeshRenderer>();
+        MeshRenderer meshRenderer = gameObject.GetComponent<MeshRenderer>();
+        if (meshRenderer == null) meshRenderer = gameObject.AddComponent<MeshRenderer>();
         meshRenderer.material = m_terrainMaterial;
+
+        MeshCollider collider = gameObject.GetComponent<MeshCollider>();
+        if (collider == null) collider = gameObject.AddComponent<MeshCollider>();
+
+        int groundLayer = LayerMask.NameToLayer("Ground");
+        gameObject.layer = groundLayer;
     }
 
     void GenerateTrees(Cell[,] grid)
@@ -105,17 +136,29 @@ public class Grid : MonoBehaviour
                     float v = Random.Range(0f, m_treeDensity);
                     if (noiseMap[x, y] < v)
                     {
-                        GameObject prefab = m_treePrefabs[Random.Range(0, m_treePrefabs.Length)];
-                        GameObject tree = Instantiate(prefab, transform);
-                        tree.transform.localPosition = new Vector3(x, 0, y);
-                        tree.transform.localRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
-                        tree.transform.localScale = Vector3.one * Random.Range(.8f, 1.2f);
+                        CreateTree(new Vector2(x, y));
                     }
                 }
             }
         }
     }
 
+    public void CreateTree(Vector2 position)
+    {
+        GameObject prefab = m_treePrefabs[Random.Range(0, m_treePrefabs.Length)];
+        GameObject tree = Instantiate(prefab, transform);
+        tree.transform.localPosition = new Vector3(position.x, 0, position.y);
+        tree.transform.localRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
+        tree.transform.localScale = Vector3.one * Random.Range(.8f, 1.2f);
+    }
+
+    public void CreateHouse(Vector2 position)
+    {
+        GameObject house = Instantiate(m_house, transform);
+        house.transform.localPosition = new Vector3(position.x, 0, position.y);
+    }
+
+    #region Mesh Generator
     public void GenerateMeshTypeNormal(Vector3 pos)
     {
         Vector3[] points = new Vector3[4];
@@ -282,46 +325,102 @@ public class Grid : MonoBehaviour
 
     public void GenerateMeshTypeBetween(Vector3 pos, float rotate)
     {
-        Vector3[] points = new Vector3[(int)m_numPoints * 2 + 2];
-        points[0] = new Vector3(pos.x - 0.5f, 0, pos.z + 0.5f);
-        points[1] = new Vector3(pos.x + 0.5f, 0, pos.z - 0.5f);
+        List<Vector3> curverPoints1 = new List<Vector3>();
+        List<Vector3> bottomCurvedPoints1 = new List<Vector3>();
         float angle = Mathf.PI / (2 * (m_numPoints - 1));
         for (int point = 0; point < m_numPoints; point++)
         {
-            float x = pos.x - Mathf.Cos(angle * point) * 0.5f + 0.5f;
-            float y = pos.z - Mathf.Sin(angle * point) * 0.5f + 0.5f;
-            points[point + 2] = new Vector3(x, 0, y);
+            float x = pos.x - Mathf.Cos(angle * point) * 0.25f + 0.25f;
+            float y = pos.z - Mathf.Sin(angle * point) * 0.25f + 0.25f;
+            curverPoints1.Add(new Vector3(x, 0, y));
+            bottomCurvedPoints1.Add(new Vector3(x, -1, y));
         }
 
+        Vector3 a = new Vector3(pos.x, 0, pos.z);
+        Vector3 b = new Vector3(pos.x - 0.5f, 0, pos.z + 0.5f);
+        Vector3 c = new Vector3(pos.x, 0, pos.z + 0.5f);
+        Vector3 d = new Vector3(pos.x - 0.5f, 0, pos.z);
+        Vector3 e = new Vector3(pos.x, 0, pos.z - 0.5f);
+        Vector3 f = new Vector3(pos.x + 0.5f, 0, pos.z);
+        Vector3 g = new Vector3(pos.x + 0.5f, 0, pos.z - 0.5f);
+        Vector3 h = new Vector3(pos.x - 0.5f, -1, pos.z);
+        Vector3 i = new Vector3(pos.x - 0.25f, -1, pos.z);
+        Vector3 j = new Vector3(pos.x + 0.25f, -1, pos.z);
+        Vector3 k = new Vector3(pos.x + 0.5f, -1, pos.z);
+        Vector3 l = new Vector3(pos.x, 0, pos.z + 0.25f);
+        Vector3 m = new Vector3(pos.x, 0, pos.z - 0.25f);
+        Vector3 n = new Vector3(pos.x, -1, pos.z + 0.25f);
+        Vector3 o = new Vector3(pos.x, -1, pos.z + 0.5f);
+        Vector3 p = new Vector3(pos.x, -1, pos.z - 0.5f);
+        Vector3 q = new Vector3(pos.x, -1, pos.z - 0.25f);
+        Vector3 r = new Vector3(pos.x - 0.25f, 0, pos.z);
+        Vector3 s = new Vector3(pos.x + 0.25f, 0, pos.z);
+
+        List<Vector3> curvedVertices1 = new List<Vector3>();
+        List<Vector3> edgeCurvedVertices1 = new List<Vector3>();
+        for (int cp = 0; cp < curverPoints1.Count; cp++)
+        {
+            if (cp > 0)
+            {
+                curvedVertices1.Add(a);
+                curvedVertices1.Add(curverPoints1[cp - 1]);
+                curvedVertices1.Add(curverPoints1[cp]);
+            }
+
+            if (cp < curverPoints1.Count - 1)
+            {
+                edgeCurvedVertices1.Add(curverPoints1[cp]);
+                edgeCurvedVertices1.Add(bottomCurvedPoints1[cp]);
+                edgeCurvedVertices1.Add(bottomCurvedPoints1[cp + 1]);
+
+                edgeCurvedVertices1.Add(curverPoints1[cp]);
+                edgeCurvedVertices1.Add(bottomCurvedPoints1[cp + 1]);
+                edgeCurvedVertices1.Add(curverPoints1[cp + 1]);
+            }
+        }
+
+        List<Vector3> curverPoints2 = new List<Vector3>();
+        List<Vector3> bottomCurvedPoints2 = new List<Vector3>();
         for (int point = 0; point < m_numPoints; point++)
         {
-            float x = pos.x + Mathf.Cos(angle * point) * 0.5f - 0.5f;
-            float y = pos.z + Mathf.Sin(angle * point) * 0.5f - 0.5f;
-            points[point + 2 + m_numPoints] = new Vector3(x, 0, y);
+            float x = pos.x + Mathf.Cos(angle * point) * 0.25f - 0.25f;
+            float y = pos.z + Mathf.Sin(angle * point) * 0.25f - 0.25f;
+            curverPoints2.Add(new Vector3(x, 0, y));
+            bottomCurvedPoints2.Add(new Vector3(x, -1, y));
         }
 
-        Vector3 a = points[0];
-        Vector3 b = points[1];
-        Vector3 c = points[2];
-        Vector3 d = points[3];
-        Vector3 e = points[4];
-        Vector3 f = points[5];
-        Vector3 g = points[6];
-        Vector3 h = points[7];
-        Vector3 i = points[8];
-        Vector3 j = points[9];
-        Vector3 k = points[10];
-        Vector3 l = points[11];
-        Vector3 m = points[12];
-        Vector3 n = points[13];
-        Vector3 o = points[14];
-        Vector3 p = points[15];
-        Vector3 q = points[16];
-        Vector3 r = points[17];
+        List<Vector3> curvedVertices2 = new List<Vector3>();
+        List<Vector3> edgeCurvedVertices2 = new List<Vector3>();
+        for (int cp = 0; cp < curverPoints2.Count; cp++)
+        {
+            if (cp > 0)
+            {
+                curvedVertices2.Add(a);
+                curvedVertices2.Add(curverPoints2[cp - 1]);
+                curvedVertices2.Add(curverPoints2[cp]);
+            }
 
-        Vector3[] v = new Vector3[] { a, c, r, r, c, q, q, c, d, q, d, p, p, d, e, p, e, o, o, e, f, o, f, n, n, f, g, n, g, m, m, g, h, m, h, l, l, h, i, l, i, k, k, i, j, k, j, b };
+            if (cp < curverPoints1.Count - 1)
+            {
+                edgeCurvedVertices2.Add(curverPoints2[cp]);
+                edgeCurvedVertices2.Add(bottomCurvedPoints2[cp]);
+                edgeCurvedVertices2.Add(bottomCurvedPoints2[cp + 1]);
+
+                edgeCurvedVertices2.Add(curverPoints2[cp]);
+                edgeCurvedVertices2.Add(bottomCurvedPoints2[cp + 1]);
+                edgeCurvedVertices2.Add(curverPoints2[cp + 1]);
+            }
+        }
+
+
+        List<Vector3> v = new List<Vector3> { b, a, d, b, c, a, a, f, g, a, g, e, h, d, r, h, r, i, n, l, c, n, c, o, q, m, e, q, e, p, k, f, s, k, s, j };
+        v.AddRange(curvedVertices1);
+        v.AddRange(edgeCurvedVertices1);
+        v.AddRange(curvedVertices2);
+        v.AddRange(edgeCurvedVertices2);
+
         List<Vector3> vertices = new List<Vector3>();
-        for (int z = 0; z < v.Length; z++)
+        for (int z = 0; z < v.Count; z++)
         {
             vertices.Add(v[z]);
             m_triangles.Add(m_triangles.Count);
@@ -343,6 +442,7 @@ public class Grid : MonoBehaviour
 
         return updatedVertices;
     }
+    #endregion
 }
 
 [Serializable]
@@ -350,5 +450,4 @@ public class TerrainInfo
 {
     public CellType CellType;
     public float Height;
-    public Color Color;
 }

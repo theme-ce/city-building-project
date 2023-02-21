@@ -1,25 +1,29 @@
-using UnityEngine;
-
 public class Cell
 {
     public CellType CellType;
-    public Color Color;
-    public Cell LeftCell = null;
-    public Cell RightCell = null;
-    public Cell UpCell = null;
-    public Cell DownCell = null;
+    public DualGridCell AOfDualGrids = null;
+    public DualGridCell BOfDualGrids = null;
+    public DualGridCell COfDualGrids = null;
+    public DualGridCell DOfDualGrids = null;
 
-    public Cell(TerrainInfo info)
+    public Cell(CellType cellType)
     {
-        CellType = info.CellType;
-        Color = info.Color;
+        CellType = cellType;
+    }
+
+    public void UpdateType(CellType cellType)
+    {
+        CellType = cellType;
+        if (AOfDualGrids != null) AOfDualGrids.A = cellType;
+        if (BOfDualGrids != null) BOfDualGrids.B = cellType;
+        if (COfDualGrids != null) COfDualGrids.C = cellType;
+        if (DOfDualGrids != null) DOfDualGrids.D = cellType;
     }
 }
 
 public enum CellType : byte
 {
-    Water = 0,
-    Sand = 1,
-    Grass = 2,
-    Grass2 = 3,
+    Soil = 0,
+    Grass = 1,
+    Structure = 2,
 }

@@ -9,7 +9,8 @@ Material:
   m_PrefabAsset: {fileID: 0}
   m_Name: TFF_Water_01A
   m_Shader: {fileID: 4800000, guid: 21b2f218fa38d334daf2f2012e6c546d, type: 3}
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - _WAVES_ON
   m_InvalidKeywords: []
   m_LightmapFlags: 2
   m_EnableInstancingVariants: 0
@@ -73,14 +74,14 @@ Material:
     - _Cull: 2
     - _Cutoff: 0.5
     - _DstBlend: 0
-    - _FoamDistance: 0.121
-    - _FoamHardness: 0.146
+    - _FoamDistance: 0.05
+    - _FoamHardness: 1
     - _FoamOpacity: 1
-    - _FoamScale: 0.985
+    - _FoamScale: 1
     - _FoamSpeed: 0.116
-    - _FresnelIntensity: 0.6
+    - _FresnelIntensity: 0.3
     - _GlossinessSource: 0
-    - _Opacity: 0.3
+    - _Opacity: 0.4
     - _OpacityDepth: 10
     - _QueueControl: 0
     - _QueueOffset: 0
@@ -88,10 +89,10 @@ Material:
     - _ReflectionsCutoff: 0.4
     - _ReflectionsCutoffScale: 16
     - _ReflectionsCutoffScrollSpeed: -0.025
-    - _ReflectionsOpacity: 0.85
+    - _ReflectionsOpacity: 0.5
     - _ReflectionsScale: 22
     - _ReflectionsScrollSpeed: 0.045
-    - _ShallowColorDepth: 3
+    - _ShallowColorDepth: 1
     - _Shininess: 0
     - _Smoothness: 0.5
     - _SmoothnessSource: 0
@@ -99,19 +100,19 @@ Material:
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _Surface: 0
-    - _WaveAmplitude: 0.287
+    - _WaveAmplitude: 0.5
     - _WaveIntensity: 0.466
-    - _WaveSpeed: 1
-    - _Waves: 0
+    - _WaveSpeed: 0.4
+    - _Waves: 1
     - _ZWrite: 1
     - __dirty: 0
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 0.104396604, g: 0.9622642, b: 0.9283277, a: 1}
-    - _DeepColor: {r: 0.13585797, g: 0.34535164, b: 0.4056604, a: 1}
+    - _DeepColor: {r: 0.08699717, g: 0.6502435, b: 0.8018868, a: 1}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
-    - _FoamColor: {r: 0.4811321, g: 0.4811321, b: 0.4811321, a: 1}
+    - _FoamColor: {r: 0.19668922, g: 0.5026072, b: 0.6415094, a: 1}
     - _FresnelColor: {r: 0, g: 0.4027779, b: 1, a: 1}
-    - _ShallowColor: {r: 0.19001423, g: 0.5537617, b: 0.6603774, a: 1}
+    - _ShallowColor: {r: 0.0141509175, g: 0.78359383, b: 1, a: 1}
     - _SpecColor: {r: 0.5, g: 0.5, b: 0.5, a: 0.5}
   m_BuildTextureStacks: []

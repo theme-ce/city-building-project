@@ -15,7 +15,7 @@ public class MoveCamera : MonoBehaviour
         Vector3 right = rotation * Vector3.right;
         transform.Translate((forward * vertical + right * horizontal) * m_camMoveSpeed * Time.deltaTime);
 
-        if (Input.GetMouseButton(0))
+        if (Input.GetMouseButton(1))
         {
             float mouseX = Input.GetAxis("Mouse X");
             transform.Rotate(0, mouseX * m_camRotateSpeed, 0);
