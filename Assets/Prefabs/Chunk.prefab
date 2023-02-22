@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 393836620089369175}
   - component: {fileID: 393836620089369174}
   m_Layer: 6
-  m_Name: Grid
+  m_Name: GroundChunk
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -44,11 +44,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ac66072dda7132a49b06c8adf611614f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_house: {fileID: 8169435367295168384, guid: f7643222f60b1e042a6b4538e4375b5d, type: 3}
+  ChunkPos: {x: 0, y: 0}
+  m_terrainMaterial: {fileID: 2100000, guid: 64dd0074e96e97f45a524b7bea903ea2, type: 2}
   m_treePrefabs:
   - {fileID: 4906848363958516633, guid: f336c3b1279d1c6458bd3155941e61f0, type: 3}
   - {fileID: 2607823764463132604, guid: 852cd81b177c8b64bb583ef1c5632d07, type: 3}
-  m_terrainMaterial: {fileID: 2100000, guid: 64dd0074e96e97f45a524b7bea903ea2, type: 2}
+  m_crystalMeteor:
+  - {fileID: 11400000, guid: 8e123b207d865214c84663ce59470b5e, type: 2}
 --- !u!1 &393836620745493319
 GameObject:
   m_ObjectHideFlags: 0

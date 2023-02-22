@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-public class Grid : MonoBehaviour
+public class Chunk : MonoBehaviour
 {
-    [SerializeField] private GameObject m_house;
-    [SerializeField] private GameObject[] m_treePrefabs;
+    public Vector2Int ChunkPos;
+
     [SerializeField] private Material m_terrainMaterial;
+    [SerializeField] private GameObject[] m_treePrefabs;
 
     private float m_treeNoiseScale = 8f;
     private float m_treeDensity = .2f;
@@ -21,16 +22,17 @@ public class Grid : MonoBehaviour
     private List<Vector2> m_uvs = new List<Vector2>();
     private int m_numPoints = 8;
 
-    public void Init(Cell[,] gridData, DualGridCell[,] dualGridData, int size)
+    public void Init(Cell[,] gridData, DualGridCell[,] dualGridData, int size, Vector2Int chunkPos)
     {
         m_size = size;
 
         m_grid = gridData;
         m_dualGrid = dualGridData;
         m_mesh = new Mesh();
+        ChunkPos = chunkPos;
 
         DrawTerrainMesh(m_grid);
-        GenerateTrees(m_grid);
+        DrawResources(m_grid);
     }
 
     public void UpdateChunk(Cell[,] gridData, DualGridCell[,] dualGridData)
@@ -39,6 +41,7 @@ public class Grid : MonoBehaviour
         m_dualGrid = dualGridData;
 
         DrawTerrainMesh(m_grid);
+        DrawResources(m_grid);
     }
 
     public void DrawTerrainMesh(Cell[,] grid)
@@ -60,8 +63,8 @@ public class Grid : MonoBehaviour
                 #region FillCorner
                 if (A != CellType.Soil && B == CellType.Soil && C == CellType.Soil && D == CellType.Soil) GenerateMeshTypeFillCorner(pos, 0);
                 else if (A == CellType.Soil && B != CellType.Soil && C == CellType.Soil && D == CellType.Soil) GenerateMeshTypeFillCorner(pos, 90);
-                else if (A == CellType.Soil && B == CellType.Soil && C == CellType.Soil && D == CellType.Grass) GenerateMeshTypeFillCorner(pos, 180);
-                else if (A == CellType.Soil && B == CellType.Soil && C == CellType.Grass && D == CellType.Soil) GenerateMeshTypeFillCorner(pos, 270);
+                else if (A == CellType.Soil && B == CellType.Soil && C == CellType.Soil && D != CellType.Soil) GenerateMeshTypeFillCorner(pos, 180);
+                else if (A == CellType.Soil && B == CellType.Soil && C != CellType.Soil && D == CellType.Soil) GenerateMeshTypeFillCorner(pos, 270);
                 #endregion
                 #region Half
                 else if (A != CellType.Soil && B == CellType.Soil && C != CellType.Soil && D == CellType.Soil) GenerateMeshTypeHalf(pos, 0);
@@ -112,50 +115,31 @@ public class Grid : MonoBehaviour
         gameObject.layer = groundLayer;
     }
 
-    void GenerateTrees(Cell[,] grid)
+    public void DrawResources(Cell[,] grid)
     {
-        float[,] noiseMap = new float[m_size, m_size];
-        float xOffset = Random.Range(-10000f, 10000f);
-        float yOffset = Random.Range(-10000f, 10000f);
-        for (int y = 0; y < m_size; y++)
-        {
-            for (int x = 0; x < m_size; x++)
-            {
-                float noiseValue = Mathf.PerlinNoise(x / m_treeNoiseScale + xOffset, y / m_treeNoiseScale + yOffset);
-                noiseMap[x, y] = noiseValue;
-            }
-        }
-
         for (int y = 0; y < m_size; y++)
         {
             for (int x = 0; x < m_size; x++)
             {
                 Cell cell = grid[x, y];
-                if (cell.CellType == CellType.Grass)
-                {
-                    float v = Random.Range(0f, m_treeDensity);
-                    if (noiseMap[x, y] < v)
-                    {
-                        CreateTree(new Vector2(x, y));
-                    }
-                }
+                if (cell.CellType == CellType.Resource && cell.ResourceData != null) CreateResource(new Vector2(x, y), cell.ResourceData.Prefab);
             }
         }
     }
 
-    public void CreateTree(Vector2 position)
+    public void CreateResource(Vector2 position, GameObject prefab)
     {
-        GameObject prefab = m_treePrefabs[Random.Range(0, m_treePrefabs.Length)];
-        GameObject tree = Instantiate(prefab, transform);
-        tree.transform.localPosition = new Vector3(position.x, 0, position.y);
-        tree.transform.localRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
-        tree.transform.localScale = Vector3.one * Random.Range(.8f, 1.2f);
+        GameObject resource = Instantiate(prefab, transform);
+        resource.transform.localPosition = new Vector3(position.x, 0, position.y);
+        float[] angleForRandom = new float[] { 0, 90, 180, 270 };
+        resource.transform.localRotation = Quaternion.Euler(0, angleForRandom[Random.Range(0, 4)], 0);
     }
 
-    public void CreateHouse(Vector2 position)
+    public void CreateStructure(StructureData structureData, Vector2 position, float angle)
     {
-        GameObject house = Instantiate(m_house, transform);
-        house.transform.localPosition = new Vector3(position.x, 0, position.y);
+        GameObject structureGO = Instantiate(structureData.NormalPrefab, transform);
+        structureGO.transform.localPosition = new Vector3(position.x, 0, position.y);
+        structureGO.transform.RotateAround(structureGO.transform.position, structureGO.transform.up, angle);
     }
 
     #region Mesh Generator
