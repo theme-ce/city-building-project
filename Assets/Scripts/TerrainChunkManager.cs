@@ -1,220 +1,236 @@
-using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
-using Random = UnityEngine.Random;
 
 public class TerrainChunkManager : MonoBehaviour
 {
+    public static TerrainChunkManager Instance { get; private set; }
+
+    [SerializeField] private Texture2D m_heightMap;
     [SerializeField] private GameObject m_chunk;
     [SerializeField] private int m_chunkSize = 50;
     [SerializeField] private int m_maxChunksX = 5;
     [SerializeField] private int m_maxChunksY = 5;
+    [SerializeField] private float m_scale = 5f;
 
-    private DualGridCell[,] m_grounddualGrid;
-    private Cell[,] m_groundChunk;
-    private Chunk[,] m_chunks;
+    private DualGridCell[,] m_dualGridDataData;
+    private Cell[,] m_groundData;
+    private GrassChunk[,] m_chunks;
+
+    public DualGridCell[,] DualGridDataData => m_dualGridDataData;
+    public Cell[,] GroundData => m_groundData;
 
     [Space]
-    [SerializeField] private int m_resourceScale = 5;
-    [SerializeField] private Resource[] m_resources;
+    [Header("Draw Chunk")]
+    [SerializeField] private MoveCamera m_camera;
+    private Vector2Int m_currentChunk = new Vector2Int(0, 0);
+    private Dictionary<Vector2Int, GameObject> m_activeChunks = new Dictionary<Vector2Int, GameObject>();
+    private List<Vector2Int> m_keepChunks = new List<Vector2Int>();
+    private List<Vector2Int> m_needGenerateChunks = new List<Vector2Int>();
+    private List<Vector2Int> m_toDestroyChunks = new List<Vector2Int>();
 
-    public Cell[,] GroundChunkData => m_groundChunk;
+    private int m_terrainOffsetX;
+    private int m_terrainOffsetY;
+
+    public Cell[,] GroundChunkData => m_groundData;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this);
+        }
+        else
+        {
+            Instance = this;
+        }
+    }
 
     private void Start()
     {
-        GenerateGridData();
-        GenerateResource();
+        GenerateLoadedData();
+    }
+
+    private void GenerateLoadedData()
+    {
+        LoadData();
+
+        GenerateGridData(true);
         GenerateDualGridData();
 
-        m_chunks = new Chunk[m_maxChunksX, m_maxChunksY];
+        m_chunks = new GrassChunk[m_maxChunksX, m_maxChunksY];
+    }
 
-        for (int x = 0; x < m_maxChunksX; x++)
+    private void GenerateNewData()
+    {
+        GenerateGridData();
+        GenerateDualGridData();
+
+        m_chunks = new GrassChunk[m_maxChunksX, m_maxChunksY];
+
+        SaveData();
+    }
+
+    private void Update()
+    {
+        Vector2Int currentChunk = new Vector2Int(Mathf.FloorToInt(m_camera.transform.position.x / m_chunkSize), Mathf.FloorToInt(m_camera.transform.position.z / m_chunkSize));
+        if (m_currentChunk != currentChunk)
         {
-            for (int y = 0; y < m_maxChunksY; y++)
+            m_currentChunk = currentChunk;
+
+            m_keepChunks.Clear();
+            m_needGenerateChunks.Clear();
+            m_toDestroyChunks.Clear();
+
+            Vector2Int center = new Vector2Int(m_currentChunk.x, m_currentChunk.y);
+            Vector2Int left = new Vector2Int(m_currentChunk.x - 1, m_currentChunk.y);
+            Vector2Int right = new Vector2Int(m_currentChunk.x + 1, m_currentChunk.y);
+            Vector2Int up = new Vector2Int(m_currentChunk.x, m_currentChunk.y + 1);
+            Vector2Int down = new Vector2Int(m_currentChunk.x, m_currentChunk.y - 1);
+            Vector2Int upLeft = new Vector2Int(m_currentChunk.x - 1, m_currentChunk.y + 1);
+            Vector2Int upRight = new Vector2Int(m_currentChunk.x + 1, m_currentChunk.y + 1);
+            Vector2Int downLeft = new Vector2Int(m_currentChunk.x - 1, m_currentChunk.y - 1);
+            Vector2Int downRight = new Vector2Int(m_currentChunk.x + 1, m_currentChunk.y - 1);
+
+            CheckForKeepChunk(center);
+            CheckForKeepChunk(left);
+            CheckForKeepChunk(right);
+            CheckForKeepChunk(up);
+            CheckForKeepChunk(down);
+            CheckForKeepChunk(upLeft);
+            CheckForKeepChunk(downLeft);
+            CheckForKeepChunk(upRight);
+            CheckForKeepChunk(downRight);
+
+            foreach (var chunk in m_activeChunks)
             {
-                GameObject chunk = Instantiate(m_chunk, transform);
-                chunk.transform.localPosition = new Vector3(x * m_chunkSize, 0, y * m_chunkSize);
-                Chunk grid = chunk.GetComponentInChildren<Chunk>();
-                m_chunks[x, y] = grid;
+                if (!m_keepChunks.Contains(chunk.Key)) m_toDestroyChunks.Add(chunk.Key);
+            }
 
-                Cell[,] gridDataPerChunk = new Cell[m_chunkSize, m_chunkSize];
-                for (int i = 0; i < m_chunkSize; i++)
-                {
-                    for (int j = 0; j < m_chunkSize; j++)
-                    {
-                        gridDataPerChunk[i, j] = m_groundChunk[i + (x * m_chunkSize), j + (y * m_chunkSize)];
-                    }
-                }
+            foreach (var coord in m_toDestroyChunks)
+            {
+                Destroy(m_activeChunks[new Vector2Int(coord.x, coord.y)]);
+                m_activeChunks.Remove(new Vector2Int(coord.x, coord.y));
+            }
 
-                DualGridCell[,] dualGridDataPerChunk = new DualGridCell[m_chunkSize + 1, m_chunkSize + 1];
-                for (int i = 0; i < m_chunkSize + 1; i++)
-                {
-                    for (int j = 0; j < m_chunkSize + 1; j++)
-                    {
-                        dualGridDataPerChunk[i, j] = m_grounddualGrid[i + (x * m_chunkSize), j + (y * m_chunkSize)];
-                    }
-                }
-
-                grid.Init(gridDataPerChunk, dualGridDataPerChunk, m_chunkSize, new Vector2Int(x, y));
+            foreach (var coord in m_needGenerateChunks)
+            {
+                StartCoroutine(DrawChunk(coord.x, coord.y));
             }
         }
     }
 
-    public void UpdateMesh(Vector2Int cellPos, float sizeX, float sizeY, CellType cellType)
+    void CheckForKeepChunk(Vector2Int direction)
     {
-        List<Chunk> needUpdateChunk = new List<Chunk>();
-        for (int x = 0; x < sizeX; x++)
-        {
-            for (int y = 0; y < sizeY; y++)
-            {
-                try
-                {
-                    Cell cell = m_groundChunk[cellPos.x + x - Mathf.FloorToInt(sizeX / 2), cellPos.y + y - Mathf.FloorToInt(sizeY / 2)];
-                    cell.UpdateType(cellType);
-                    if (!needUpdateChunk.Contains(m_chunks[cell.BelongToChunk.x, cell.BelongToChunk.y])) needUpdateChunk.Add(m_chunks[cell.BelongToChunk.x, cell.BelongToChunk.y]);
-                }
-                catch (IndexOutOfRangeException)
-                {
-                    continue;
-                }
-            }
-        }
-
-        foreach (var chunk in needUpdateChunk)
-        {
-            Cell[,] gridDataPerChunk = new Cell[m_chunkSize, m_chunkSize];
-            for (int i = 0; i < m_chunkSize; i++)
-            {
-                for (int j = 0; j < m_chunkSize; j++)
-                {
-                    gridDataPerChunk[i, j] = m_groundChunk[i + (chunk.ChunkPos.x * m_chunkSize), j + (chunk.ChunkPos.y * m_chunkSize)];
-                }
-            }
-
-            DualGridCell[,] dualGridDataPerChunk = new DualGridCell[m_chunkSize + 1, m_chunkSize + 1];
-            for (int i = 0; i < m_chunkSize + 1; i++)
-            {
-                for (int j = 0; j < m_chunkSize + 1; j++)
-                {
-                    dualGridDataPerChunk[i, j] = m_grounddualGrid[i + (chunk.ChunkPos.x * m_chunkSize), j + (chunk.ChunkPos.y * m_chunkSize)];
-                }
-            }
-
-            chunk.UpdateChunk(gridDataPerChunk, dualGridDataPerChunk);
-        }
+        if (m_activeChunks.ContainsKey(direction)) m_keepChunks.Add(direction);
+        else m_needGenerateChunks.Add(direction);
     }
 
-    public void GenerateGridData()
+    IEnumerator DrawChunk(int x, int y)
     {
-        m_groundChunk = new Cell[m_chunkSize * m_maxChunksX, m_chunkSize * m_maxChunksY];
+        GameObject chunk = Instantiate(m_chunk, transform);
+        chunk.transform.localPosition = new Vector3(x * m_chunkSize, 0, y * m_chunkSize);
+        GrassChunk grassChunk = chunk.GetComponentInChildren<GrassChunk>();
+        CorruptedChunk corruptedChunk = chunk.GetComponentInChildren<CorruptedChunk>();
+
+        try
+        {
+            m_chunks[x, y] = grassChunk;
+        }
+        catch
+        {
+            yield break;
+        }
+
+        Cell[,] gridDataPerChunk = new Cell[m_chunkSize, m_chunkSize];
+        for (int i = 0; i < m_chunkSize; i++)
+        {
+            for (int j = 0; j < m_chunkSize; j++)
+            {
+                gridDataPerChunk[i, j] = m_groundData[i + (x * m_chunkSize), j + (y * m_chunkSize)];
+            }
+        }
+
+        DualGridCell[,] dualGridDataPerChunk = new DualGridCell[m_chunkSize + 1, m_chunkSize + 1];
+        for (int i = 0; i < m_chunkSize + 1; i++)
+        {
+            for (int j = 0; j < m_chunkSize + 1; j++)
+            {
+                dualGridDataPerChunk[i, j] = m_dualGridDataData[i + (x * m_chunkSize), j + (y * m_chunkSize)];
+            }
+        }
+
+        grassChunk.Init(gridDataPerChunk, dualGridDataPerChunk, m_chunkSize, new Vector2Int(x, y));
+        corruptedChunk.Init(gridDataPerChunk, dualGridDataPerChunk, m_chunkSize, new Vector2Int(x, y));
+
+        m_activeChunks.Add(new Vector2Int(x, y), chunk);
+        yield return null;
+    }
+
+    public void GenerateGridData(bool fromLoad = false)
+    {
+        m_groundData = new Cell[m_chunkSize * m_maxChunksX, m_chunkSize * m_maxChunksY];
+        if (!fromLoad)
+        {
+            m_terrainOffsetX = Random.Range(-10000, 10000);
+            m_terrainOffsetY = Random.Range(-10000, 10000);
+        }
+        float[,] noiseMap = GenerateNoiseMap(m_chunkSize * m_maxChunksX, m_chunkSize * m_maxChunksY, m_scale, m_terrainOffsetX, m_terrainOffsetY);
+
         for (int y = 0; y < m_chunkSize * m_maxChunksY; y++)
         {
             for (int x = 0; x < m_chunkSize * m_maxChunksX; x++)
             {
-                Cell cell = new Cell(new Vector2Int(Mathf.FloorToInt(x / m_chunkSize), Mathf.FloorToInt(y / m_chunkSize)), CellType.Grass);
-                m_groundChunk[x, y] = cell;
+                Cell cell = new Cell();
+                if (noiseMap[x, y] < 0.15)
+                {
+                    cell.CellType = CellType.Water;
+                }
+                else if (noiseMap[x, y] < 0.5)
+                {
+                    cell.CellType = CellType.Corrupted;
+                }
+                else if (noiseMap[x, y] <= 1)
+                {
+                    cell.CellType = CellType.Grass;
+                }
+                m_groundData[x, y] = cell;
             }
         }
     }
 
     public void GenerateDualGridData()
     {
-        m_grounddualGrid = new DualGridCell[m_chunkSize * m_maxChunksX + 1, m_chunkSize * m_maxChunksY + 1];
+        m_dualGridDataData = new DualGridCell[m_chunkSize * m_maxChunksX + 1, m_chunkSize * m_maxChunksY + 1];
         for (int y = 0; y < m_chunkSize * m_maxChunksY + 1; y++)
         {
             for (int x = 0; x < m_chunkSize * m_maxChunksX + 1; x++)
             {
-                m_grounddualGrid[x, y] = new DualGridCell();
-                m_grounddualGrid[x, y].Position = new Vector3(x - 0.5f, 0, y - 0.5f);
+                m_dualGridDataData[x, y] = new DualGridCell();
+                m_dualGridDataData[x, y].Position = new SerializableVector2(new Vector2(x - 0.5f, y - 0.5f));
                 if (x > 0 && y < m_chunkSize * m_maxChunksY)
                 {
-                    m_grounddualGrid[x, y].A = m_groundChunk[x - 1, y].CellType;
-                    m_groundChunk[x - 1, y].AOfDualGrids = m_grounddualGrid[x, y];
+                    m_dualGridDataData[x, y].A = m_groundData[x - 1, y].CellType;
                 }
                 if (x < m_chunkSize * m_maxChunksX && y < m_chunkSize * m_maxChunksY)
                 {
-                    m_grounddualGrid[x, y].B = m_groundChunk[x, y].CellType;
-                    m_groundChunk[x, y].BOfDualGrids = m_grounddualGrid[x, y];
+                    m_dualGridDataData[x, y].B = m_groundData[x, y].CellType;
                 }
                 if (x > 0 && y > 0)
                 {
-                    m_grounddualGrid[x, y].C = m_groundChunk[x - 1, y - 1].CellType;
-                    m_groundChunk[x - 1, y - 1].COfDualGrids = m_grounddualGrid[x, y];
+                    m_dualGridDataData[x, y].C = m_groundData[x - 1, y - 1].CellType;
                 }
                 if (x < m_chunkSize * m_maxChunksX && y > 0)
                 {
-                    m_grounddualGrid[x, y].D = m_groundChunk[x, y - 1].CellType;
-                    m_groundChunk[x, y - 1].DOfDualGrids = m_grounddualGrid[x, y];
+                    m_dualGridDataData[x, y].D = m_groundData[x, y - 1].CellType;
                 }
             }
         }
     }
 
-    public void CreateStructure(StructureData structureData, Vector2Int cellPos, float angle)
-    {
-        int x = Mathf.FloorToInt(cellPos.x / 50);
-        int y = Mathf.FloorToInt(cellPos.y / 50);
-        Chunk grid = m_chunks[x, y];
-        float houseX = Mathf.FloorToInt(cellPos.x - m_chunkSize * x);
-        float houseY = Mathf.FloorToInt(cellPos.y - m_chunkSize * y);
-        grid.CreateStructure(structureData, new Vector2(houseX, houseY), angle);
-        Debug.Log($"Create House at Position: x: {houseX} y :{houseY}, At Chunk x: {x} y: {y}");
-    }
-
-    void GenerateResource()
-    {
-        float[,] noiseMap = GenerateNoiseMap(m_chunkSize * m_maxChunksX, m_chunkSize * m_maxChunksY, m_resourceScale);
-
-        for (int y = 0; y < m_chunkSize * m_maxChunksY; y++)
-        {
-            for (int x = 0; x < m_chunkSize * m_maxChunksX; x++)
-            {
-                Resource resourceData = m_resources[Random.Range(0, m_resources.Length)];
-                int sizeX = resourceData.SizeX;
-                int sizeY = resourceData.SizeY;
-
-                if (x - sizeX < 0) continue;
-                if (x + sizeX > m_chunkSize * m_maxChunksX) continue;
-                if (y - sizeY < 0) continue;
-                if (y + sizeY > m_chunkSize * m_maxChunksY) continue;
-
-                bool checkNext = true;
-                for (int i = 0; i < sizeX; i++)
-                {
-                    for (int j = 0; j < sizeY; j++)
-                    {
-                        Cell checkCell = m_groundChunk[x + i - Mathf.FloorToInt(sizeX / 2), y + j - Mathf.FloorToInt(sizeY / 2)];
-                        if (checkCell.CellType == CellType.Resource)
-                        {
-                            checkNext = false;
-                            break;
-                        }
-                    }
-                    if (!checkNext) break;
-                }
-                if (!checkNext) continue;
-
-                float v = Random.Range(0f, resourceData.Density);
-                if (noiseMap[x, y] < v)
-                {
-                    Cell mainResourceCell = m_groundChunk[x, y];
-                    mainResourceCell.ResourceData = resourceData;
-                    for (int i = 0; i < sizeX; i++)
-                    {
-                        for (int j = 0; j < sizeY; j++)
-                        {
-                            Cell childResourceCell = m_groundChunk[x + i - Mathf.FloorToInt(sizeX / 2), y + j - Mathf.FloorToInt(sizeY / 2)];
-                            childResourceCell.CellType = CellType.Resource;
-                            mainResourceCell.ResourceChildCell.Add(childResourceCell);
-                        }
-                    }
-                }
-
-            }
-        }
-    }
-
-    public float[,] GenerateNoiseMap(int mapDepth, int mapWidth, float scale)
+    public float[,] GenerateNoiseMap(int mapDepth, int mapWidth, float scale, int offsetX, int offsetY)
     {
         // create an empty noise map with the mapDepth and mapWidth coordinates
         float[,] noiseMap = new float[mapDepth, mapWidth];
@@ -223,8 +239,8 @@ public class TerrainChunkManager : MonoBehaviour
             for (int xIndex = 0; xIndex < mapWidth; xIndex++)
             {
                 // calculate sample indices based on the coordinates and the scale
-                float sampleX = xIndex / scale;
-                float sampleZ = zIndex / scale;
+                float sampleX = xIndex / scale + offsetX;
+                float sampleZ = zIndex / scale + offsetY;
                 // generate noise value using PerlinNoise
                 float noise = Mathf.PerlinNoise(sampleX, sampleZ);
                 noiseMap[zIndex, xIndex] = noise;
@@ -232,4 +248,53 @@ public class TerrainChunkManager : MonoBehaviour
         }
         return noiseMap;
     }
+
+    public void SaveData()
+    {
+        TerrainData terrainData = new TerrainData(m_terrainOffsetX, m_terrainOffsetY);
+
+        using (FileStream fileStream = new FileStream(Application.persistentDataPath + "/terrainGenerate.dat", FileMode.Create))
+        {
+            BinaryFormatter bf = new BinaryFormatter();
+            bf.Serialize(fileStream, terrainData);
+        }
+    }
+
+    public void LoadData()
+    {
+        TerrainData terrainData = new TerrainData();
+
+        using (FileStream fileStream = new FileStream(Application.persistentDataPath + "/terrainGenerate.dat", FileMode.Open))
+        {
+            BinaryFormatter bf = new BinaryFormatter();
+            terrainData = (TerrainData)bf.Deserialize(fileStream);
+        }
+
+        m_terrainOffsetX = terrainData.TerrainOffsetX;
+        m_terrainOffsetY = terrainData.TerrainOffsetY;
+    }
+
+    //private void OnDrawGizmos()
+    //{
+    //    if (m_resourceData != null && m_resourceData.Length > 0)
+    //    {
+    //        for (int x = 0; x < m_chunkSize * m_maxChunksX; x++)
+    //        {
+    //            for (int y = 0; y < m_chunkSize * m_maxChunksY; y++)
+    //            {
+    //                Color color = Color.white;
+    //                switch (m_resourceData[x, y].Type)
+    //                {
+    //                    case ResourceCellType.ManaMeteor:
+    //                        color = Color.blue;
+    //                        Gizmos.color = color;
+    //                        Gizmos.DrawSphere(new Vector3(x, 0, y), 0.1f);
+    //                        break;
+    //                    default:
+    //                        break;
+    //                }
+    //            }
+    //        }
+    //    }
+    //}
 }

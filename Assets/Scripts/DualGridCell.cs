@@ -1,8 +1,9 @@
-using UnityEngine;
+using System;
 
+[Serializable]
 public class DualGridCell
 {
-    public Vector3 Position;
+    public SerializableVector2 Position;
     public CellType A;
     public CellType B;
     public CellType C;
