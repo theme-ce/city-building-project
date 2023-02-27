@@ -9,6 +9,6 @@ public class Cell
 public enum CellType : byte
 {
     Water = 0,
-    Corrupted = 1,
+    Soil = 1,
     Grass = 2,
 }

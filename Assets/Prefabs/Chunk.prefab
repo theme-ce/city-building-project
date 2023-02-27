@@ -46,9 +46,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ChunkPos: {x: 0, y: 0}
   m_terrainMaterial: {fileID: 2100000, guid: 64dd0074e96e97f45a524b7bea903ea2, type: 2}
-  m_treePrefabs:
-  - {fileID: 4906848363958516633, guid: f336c3b1279d1c6458bd3155941e61f0, type: 3}
-  - {fileID: 2607823764463132604, guid: 852cd81b177c8b64bb583ef1c5632d07, type: 3}
 --- !u!1 &393836620745493319
 GameObject:
   m_ObjectHideFlags: 0
@@ -93,7 +90,7 @@ GameObject:
   - component: {fileID: 393836620951346204}
   - component: {fileID: 7042170970466619053}
   m_Layer: 6
-  m_Name: Corrupted
+  m_Name: Soil
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -127,4 +124,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ChunkPos: {x: 0, y: 0}
-  m_terrainMaterial: {fileID: 2100000, guid: 014d6f103bbb29b438ebf09f2067e3ce, type: 2}
+  m_terrainMaterial: {fileID: 2100000, guid: 64dd0074e96e97f45a524b7bea903ea2, type: 2}

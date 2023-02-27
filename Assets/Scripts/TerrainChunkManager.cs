@@ -133,7 +133,7 @@ public class TerrainChunkManager : MonoBehaviour
         GameObject chunk = Instantiate(m_chunk, transform);
         chunk.transform.localPosition = new Vector3(x * m_chunkSize, 0, y * m_chunkSize);
         GrassChunk grassChunk = chunk.GetComponentInChildren<GrassChunk>();
-        CorruptedChunk corruptedChunk = chunk.GetComponentInChildren<CorruptedChunk>();
+        SoilChunk corruptedChunk = chunk.GetComponentInChildren<SoilChunk>();
 
         try
         {
@@ -190,7 +190,7 @@ public class TerrainChunkManager : MonoBehaviour
                 }
                 else if (noiseMap[x, y] < 0.5)
                 {
-                    cell.CellType = CellType.Corrupted;
+                    cell.CellType = CellType.Soil;
                 }
                 else if (noiseMap[x, y] <= 1)
                 {
@@ -273,28 +273,4 @@ public class TerrainChunkManager : MonoBehaviour
         m_terrainOffsetX = terrainData.TerrainOffsetX;
         m_terrainOffsetY = terrainData.TerrainOffsetY;
     }
-
-    //private void OnDrawGizmos()
-    //{
-    //    if (m_resourceData != null && m_resourceData.Length > 0)
-    //    {
-    //        for (int x = 0; x < m_chunkSize * m_maxChunksX; x++)
-    //        {
-    //            for (int y = 0; y < m_chunkSize * m_maxChunksY; y++)
-    //            {
-    //                Color color = Color.white;
-    //                switch (m_resourceData[x, y].Type)
-    //                {
-    //                    case ResourceCellType.ManaMeteor:
-    //                        color = Color.blue;
-    //                        Gizmos.color = color;
-    //                        Gizmos.DrawSphere(new Vector3(x, 0, y), 0.1f);
-    //                        break;
-    //                    default:
-    //                        break;
-    //                }
-    //            }
-    //        }
-    //    }
-    //}
 }
